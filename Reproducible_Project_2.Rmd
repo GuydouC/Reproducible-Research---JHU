@@ -1,0 +1,261 @@
+---
+title: "JHU Data Science - Reproducible Research - Project 2"
+author: "Guynemer Cétoute"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Impacts of event on economic and health
+
+## Synopsis
+Storms and other severe weather events can cause both public health and economic problems for communities and municipalities. Many severe events can result in fatalities, injuries, and property damage, and preventing such outcomes to the extent possible is a key concern.
+
+This project involves exploring the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. This database tracks characteristics of major storms and weather events in the United States, including when and where they occur, as well as estimates of any fatalities, injuries, and property damage.
+
+
+## Data
+
+The data for this assignment come in the form of a comma-separated-value file compressed via the bzip2 algorithm to reduce its size. You can download the file from the course web site:
+- [Storm Data](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2)
+There is also some documentation of the database available. Here you will find how some of the variables are constructed/defined.
+- Storm Data Documentation [National Weather Service](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf)
+- National Climatic Data Center Storm Events [FAQ](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf)
+
+The events in the database start in the year 1950 and end in November 2011. In the earlier years of the database there are generally fewer events recorded, most likely due to a lack of good records. More recent years should be considered more complete.
+
+The GITHUB is also available on: [link](https://github.com/GuydouC/Reproducible-Research---JHU)
+
+## Load the Data
+
+```{r loadData, echo = T}
+library(tidyverse) # to load required package
+Storm <- read_csv("Data_Science_Project/Storm.csv") # to load correct dataset
+View(Storm)
+names(Storm)
+```
+
+## Data Processing
+
+Selected Variables:
+1. BGN_DATE : The beginning date
+2. COUNTY : Number of the County where the event occurred
+3. COUNTYNAME : Name of the county where the event occurred
+4. STATE : State where the event occurred
+5. EVTYPE : Type of events
+6. FATALITIES : Numbers of corpses during the events
+7. INJURIES : Physical Damages during the events
+8. PROPDMG : Value of property damage in USD
+9. PROPDMGEXP : Unit multiplier for property damage
+10. CROPDMG : Value of crop damage in USD
+11. CROPDMGEXP : Unit multiplier for crop damage
+
+```{r selectedVariables, echo = T}
+data <- Storm %>%
+    select(BGN_DATE, COUNTY, COUNTYNAME, STATE, EVTYPE,
+           FATALITIES, INJURIES, PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP)
+rm(Storm)
+str(data)
+summary(data)
+```
+
+```{r date, echo = T}
+data$DATE <- mdy_hms(data$BGN_DATE) # to create new column date
+data$MONTH <- month(data$DATE, label = T, abbr = F) # to create new column with the months
+data$YEAR <- year(data$DATE) # to extract the Year in the date
+```
+
+```{r echo = TRUE}
+table(data$PROPDMGEXP) # to see the letters used to characterise the amount of dollar
+```
+```{r echo = T}
+table(data$CROPDMGEXP) # to see the letters used to characterise the amount of dollar
+```
+
+```{r echo = T}
+# To change the letters into the corresponding number 
+data$CROPDMGEXP[!grepl("K|M|B", data$CROPDMGEXP, ignore.case = TRUE)] <- 0
+data$PROPDMGEXP[!grepl("K|M|B", data$PROPDMGEXP, ignore.case = TRUE)] <- 0
+
+data$PROPDMGEXP[grep("K", data$PROPDMGEXP, ignore.case = TRUE)] <- "3"
+data$PROPDMGEXP[grep("M", data$PROPDMGEXP, ignore.case = TRUE)] <- "6"
+data$PROPDMGEXP[grep("B", data$PROPDMGEXP, ignore.case = TRUE)] <- "9"
+data$PROPDMGEXP <- as.numeric(as.character(data$PROPDMGEXP))
+
+data$CROPDMGEXP[grep("K", data$CROPDMGEXP, ignore.case = TRUE)] <- "3"
+data$CROPDMGEXP[grep("M", data$CROPDMGEXP, ignore.case = TRUE)] <- "6"
+data$CROPDMGEXP[grep("B", data$CROPDMGEXP, ignore.case = TRUE)] <- "9"
+data$CROPDMGEXP <- as.numeric(as.character(data$CROPDMGEXP))
+
+# To assign the letter into the corresponding amount in dollar
+data$PROPCOST <- data$PROPDMG * 10^data$PROPDMGEXP # 
+data$CROPCOST <- data$CROPDMG * 10^data$CROPDMGEXP
+```
+
+```{r echo = T}
+# To sort the cost of Property damage in a decreasing order
+sort(table(data$PROPCOST), decreasing = T)[1:20]
+```
+```{r }
+# To sort the cost of Crop damage in a decreasing order
+sort(table(data$CROPCOST), decreasing = T)[1:20]
+```
+
+```{r}
+data$EVTYPE <- tolower(data$EVTYPE) # to change EVTYPE into lower case
+
+# To substitute the string in order to have less categories 
+data$events <- data$EVTYPE
+data$events <- gsub('.avalan.', 'avalanche', data$events)
+data$events <- gsub('.storm.', 'storm', data$events)
+data$events <- gsub('.*storm.*', 'storm', data$events)
+data$events <- gsub('.*avalan.*', 'avalanche', data$events)
+data$events <- gsub('.*tornado.*', 'tornado', data$events)
+data$events <- gsub('.*tstm.*', 'storm', data$events)
+data$events <- gsub('.*flood.*', 'flood', data$events)
+data$events <- gsub('.*fire.*', 'fire', data$events)
+data$events <- gsub('.*cold.*', 'cold', data$events)
+data$events <- gsub('.*freez.*', 'cold', data$events)
+data$events <- gsub('.*frost.*', 'cold', data$events)
+data$events <- gsub('.*ice.*', 'cold', data$events)
+data$events <- gsub('.*low.*', 'cold', data$events)
+data$events <- gsub('.*hail.*', 'hail', data$events)
+data$events <- gsub('.*dry.*', 'heat', data$events)
+data$events <- gsub('.*icy.*', 'cold', data$events)
+data$events <- gsub('.*summary.*', 'summary', data$events)
+data$events <- gsub('.*warmth.*', 'heat', data$events)
+data$events <- gsub('.*warm.*', 'heat', data$events)
+data$events <- gsub('.*hurricane.*', 'hurricane', data$events)
+data$events <- gsub('.*drought.*', 'heat', data$events)
+data$events <- gsub('.*hot.*', 'heat', data$events)
+data$events <- gsub('.*dri.*', 'heat', data$events)
+data$events <- gsub('.*snow.*', 'snow', data$events)
+data$events <- gsub('.*torn.*', 'tornado', data$events)
+data$events <- gsub('.*volca.*', 'volcano', data$events)
+data$events <- gsub('.*rain.*', 'rain', data$events)
+data$events <- gsub('.*heat.*', 'heat', data$events)
+data$events <- gsub('.*lightning.*', 'lightning', data$events)
+data$events <- gsub('.*wint.*', 'cold', data$events)
+data$events <- gsub('.*wind.*', 'wind', data$events)
+data$events <- gsub('.*precipitation.*', 'rain', data$events)
+data$events <- gsub('.*floo.*', 'flood', data$events)
+data$events <- gsub('.*whir.*', 'wind', data$events)
+data$events <- gsub('.*precip.*', 'rain', data$events)
+data$events <- gsub('.*blizzard.*', 'rain', data$events)
+data$events <- gsub('.*wet.*', 'wet', data$events)
+data$events <- gsub('.*wat.*', 'wet', data$events)
+data$events <- gsub('.*wayt.*', 'wet', data$events)
+data$events <- gsub('.*urban.*', 'flood', data$events)
+data$events <- gsub('.*cloud.*', 'cloud', data$events)
+data$events <- gsub('.*surf.*', 'surf', data$events)
+data$events <- gsub('.*fog.*', 'fog', data$events)
+``` 
+
+```{r echo = T}
+head(sort(table(data$events), decreasing = T), n = 15) # to see only the 15 first greatest events
+```
+```{r}
+data$All_Events <- 'OTHER' # to create a column names All_Events
+
+# to set to other all the features less than 1000
+data$All_Events[grep("storm", data$events, ignore.case = TRUE)] <- "STORM"
+data$All_Events[grep("hail", data$events, ignore.case = TRUE)] <- "HAIL"
+data$All_Events[grep("flood", data$events, ignore.case = TRUE)] <- "FLOOD"
+data$All_Events[grep("tornado", data$events, ignore.case = TRUE)] <- "TORNADO"
+data$All_Events[grep("wind", data$events, ignore.case = TRUE)] <- "WIND"
+data$All_Events[grep("snow", data$events, ignore.case = TRUE)] <- "SNOW"
+data$All_Events[grep("lightning", data$events, ignore.case = TRUE)] <- "LIGHTNING"
+data$All_Events[grep("rain", data$events, ignore.case = TRUE)] <- "RAIN"
+data$All_Events[grep("cold", data$events, ignore.case = TRUE)] <- "COLD"
+data$All_Events[grep("cloud", data$events, ignore.case = TRUE)] <- "CLOUD"
+data$All_Events[grep("heat", data$events, ignore.case = TRUE)] <- "HEAT"
+data$All_Events[grep("fire", data$events, ignore.case = TRUE)] <- "FIRE"
+data$All_Events[grep("wet", data$events, ignore.case = TRUE)] <- "WET"
+data$All_Events[grep("fog", data$events, ignore.case = TRUE)] <- "FOG"
+data$All_Events[grep("surf", data$events, ignore.case = TRUE)] <- "SURF"
+
+data$events <- data$All_Events # To assign the value of All_Events to events
+data$All_Events <- NULL # To remove the column All_Events
+```
+
+## Results
+
+### Impact on Health
+
+This table shows the event that causes the most health impact
+
+```{r TableOfHealth, echo = T}
+# To create the table of the of the elements that affect the the Health by percentage
+data %>% group_by(events) %>%
+    summarise(Total = sum(FATALITIES + INJURIES, na.rm = T)) %>%
+    mutate(Percent = round(Total / sum(Total) * 100, 3),
+           Type = rep('Fatalities and Injuries')) %>%
+    arrange(desc(Total))
+```
+
+```{r plotOfHealth, echo = T}
+# To create a new variable to plot
+ToPlotHealth <- data %>% group_by(events) %>%
+    summarise(Total = sum(FATALITIES + INJURIES, na.rm = T)) %>%
+    mutate(Percent = round(Total / sum(Total) * 100, 3),
+           Type = rep('Fatalities and Injuries')) %>%
+    arrange(desc(Total))
+
+# To arrange the percentage in decreasing order to plot
+ToPlotHealth$events <- factor(ToPlotHealth$events,
+                              levels = ToPlotHealth$events[order(ToPlotHealth$Percent,
+                                                                 decreasing = T)])
+
+# The Plot of the Impact on Health per percentage
+ggplot(ToPlotHealth, aes(x = events, y = Percent, fill = events)) +
+    geom_bar(stat = 'identity') +
+    geom_text(aes(label = paste0(round(Percent, 3), '%')), vjust = -.5) +
+    labs(x = 'Health Damage', y = 'Percentage (%)') + 
+    scale_y_continuous(labels = scales::percent_format(scale = 1)) +
+    theme_minimal() + theme(legend.position = 'none') +
+    ggtitle('Events that cause the Health damage in percentage in the US \nFrom 1950 - 2011')
+
+```
+
+### Economic impact
+
+This table shows the event that causes the most economic impact.
+
+```{r}
+# To see the economic impacts per type of events
+data %>% group_by(events) %>%
+    summarise(Total = sum(PROPCOST + CROPCOST, na.rm = T)) %>%
+    mutate(Percent = round(Total / sum(Total) * 100, 3),
+           Type = rep('Economic Damage')) %>%
+    arrange(desc(Total))
+```
+
+```{r echo = T}
+# To create a new variable to plot
+ToPlotEcono <- data %>% group_by(events) %>%
+    summarise(Total = sum(PROPCOST + CROPCOST, na.rm = T)) %>%
+    mutate(Percent = round(Total / sum(Total) * 100, 3), Type = rep('Economic Damage')) %>%
+    arrange(desc(Total))
+
+
+ToPlotEcono$events <- factor(ToPlotEcono$events,
+                             levels = ToPlotEcono$events[order(ToPlotEcono$Percent,
+                                                               decreasing = T)])
+# The plot of the Economic Impact per event 
+ggplot(ToPlotEcono, aes(x = events, y = Percent, fill = events)) +
+    geom_bar(stat = 'identity') +
+    geom_text(aes(label = paste0(round(Percent, 3), '%')), vjust = -.5) +
+    labs(x = 'Economic Damage', y = 'Percentage (%)') + 
+    scale_y_continuous(labels = scales::percent_format(scale = 1)) +
+    theme_minimal() + theme(legend.position = 'none') +
+    ggtitle('Events that cause the economic damage in percentage in the US \nFrom 1950 - 2011')
+```
+
+## Conclusion
+
+Based on the results of the Analysis, we can conclude that:
+1. The most  *Health damages* are caused by Tornado, **62%**
+2. The most *Economic damages* are cause by Flood, **38%**
